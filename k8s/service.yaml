@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-demo-stable-svc
+  namespace: devops-demo
+  labels:
+    app: devops-demo-app
+    managed-by: argocd
+spec:
+  selector:
+    app: devops-demo-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-demo-canary-svc
+  namespace: devops-demo
+  labels:
+    app: devops-demo-app
+    managed-by: argocd
+spec:
+  selector:
+    app: devops-demo-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP

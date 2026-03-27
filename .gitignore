@@ -1,0 +1,14 @@
+code C:\Projects\argocd-gitops-platform\.gitignore
+```
+
+Paste this content and save:
+```
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform.lock.hcl
+*.pem
+*.key
+.env
