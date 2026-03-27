@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: devops-demo
-  labels:
-    app: devops-demo
-    managed-by: argocd

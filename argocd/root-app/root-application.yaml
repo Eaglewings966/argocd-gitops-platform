@@ -1,19 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: devops-demo-app
+  name: root-app
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: root-app
+    managed-by: emmanuel-ubani
 spec:
   project: default
   source:
-    repoURL: https://github.com/Eaglewings966/argocd-gitops-platform.git
+    repoURL: https://github.com/Eaglewings966/gitops-argocd-platform
     targetRevision: HEAD
-    path: k8s
+    path: argocd/apps
   destination:
     server: https://kubernetes.default.svc
-    namespace: devops-demo
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
