@@ -89,18 +89,18 @@ which is the correct approach for a portfolio and development environment.
 
 ---
 
-## 🏗️ Architecture 
-
-┌─────────────────────────────────────────┐
-                │           DEVELOPER WORKFLOW             │
-                │                                          │
-                │   git push → GitHub Repository          │
-                │   github.com/Eaglewings966/              │
-                │   argocd-gitops-platform                 │
-                └────────────────┬─────────────────────────┘
-                                 │
-                                 │  Argo CD polls every 3 min
-                                 ▼
+## 🏗️ Architecture
+```
+                    ┌─────────────────────────────────────────┐
+                    │           DEVELOPER WORKFLOW             │
+                    │                                          │
+                    │   git push → GitHub Repository          │
+                    │   github.com/Eaglewings966/              │
+                    │   argocd-gitops-platform                 │
+                    └────────────────┬─────────────────────────┘
+                                     │
+                                     │  Argo CD polls every 3 min
+                                     ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │                        AWS us-east-1                               │
 │                                                                    │
@@ -152,12 +152,13 @@ which is the correct approach for a portfolio and development environment.
 │  │              └────────────────────────────────────────────┘  │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────┘
-▲
-│
-👨‍💻 Engineer accesses
-Argo CD UI via
-kubectl port-forward
-localhost:8080
+                              ▲
+                              │
+                    👨‍💻 Engineer accesses
+                    Argo CD UI via
+                    kubectl port-forward
+                    localhost:8080
+```
 
 ---
 
@@ -192,7 +193,9 @@ localhost:8080
 
 ---
 
-## 📁 Project Structureargocd-gitops-platform/
+## 📁 Project Structure
+```
+argocd-gitops-platform/
 │
 ├── terraform/                       # Infrastructure as code
 │   ├── main.tf                      # IAM roles and Argo CD Helm installation
@@ -215,6 +218,7 @@ localhost:8080
 │
 ├── .gitignore                       # Excludes tfstate, tfvars, .terraform/
 └── README.md                        # This file
+```
 
 ---
 
@@ -240,98 +244,141 @@ No quota increase requests are needed to run this project.
 ## 🚀 Deployment
 
 ### Phase 1 — Create the EKS Fargate Cluster
-```bashCreate the cluster — this takes 15 to 20 minutes
-eksctl create cluster 
---name emmanuel-gitops 
---region us-east-1 
---fargate
-```bashVerify the cluster is active
+```bash
+# Create the cluster — this takes 15 to 20 minutes
+eksctl create cluster \
+  --name emmanuel-gitops \
+  --region us-east-1 \
+  --fargate
+```
+```bash
+# Verify the cluster is active
 kubectl get nodes
-Note: Fargate shows no nodes here — that is expected and correct
+# Note: Fargate shows no nodes here — that is expected and correct
+```
 
 ### Phase 2 — Create Fargate Profiles for Every Namespace
-```bashProfile for Argo CD
-eksctl create fargateprofile 
---cluster emmanuel-gitops 
---region us-east-1 
---name fp-argocd 
---namespace argocdProfile for Argo Rollouts
-eksctl create fargateprofile 
---cluster emmanuel-gitops 
---region us-east-1 
---name fp-argo-rollouts 
---namespace argo-rolloutsProfile for the demo application
-eksctl create fargateprofile 
---cluster emmanuel-gitops 
---region us-east-1 
---name fp-devops-demo 
---namespace devops-demo
+```bash
+# Profile for Argo CD
+eksctl create fargateprofile \
+  --cluster emmanuel-gitops \
+  --region us-east-1 \
+  --name fp-argocd \
+  --namespace argocd
+
+# Profile for Argo Rollouts
+eksctl create fargateprofile \
+  --cluster emmanuel-gitops \
+  --region us-east-1 \
+  --name fp-argo-rollouts \
+  --namespace argo-rollouts
+
+# Profile for the demo application
+eksctl create fargateprofile \
+  --cluster emmanuel-gitops \
+  --region us-east-1 \
+  --name fp-devops-demo \
+  --namespace devops-demo
+```
 
 ### Phase 3 — Deploy Argo CD and Argo Rollouts With Terraform
-```bashcd terraform
+```bash
+cd terraform
 terraform init
 terraform fmt
 terraform validate
 terraform plan
 terraform apply --auto-approve
+```
 
 ### Phase 4 — Verify Argo CD Is Running
-```bashkubectl get pods -n argocd
-Wait until all pods show Running status
+```bash
+kubectl get pods -n argocd
+# Wait until all pods show Running status
+```
 
 ### Phase 5 — Access Argo CD UI
-```bashGet the admin password
-kubectl -n argocd get secret argocd-initial-admin-secret 
--o jsonpath='{.data.password}' | base64 -d && echoPort-forward to access the UI locally
-kubectl port-forward svc/argocd-server -n argocd 8080:443Open in browser: https://localhost:8080
-Username: admin
-Password: from the command above
+```bash
+# Get the admin password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+
+# Port-forward to access the UI locally
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# Open in browser: https://localhost:8080
+# Username: admin
+# Password: from the command above
+```
 
 ### Phase 6 — Push to GitHub Then Deploy Root App
-```bashPush code first — Argo CD reads from GitHub
+```bash
+# Push code first — Argo CD reads from GitHub
 git add .
 git commit -m "feat: GitOps platform with Argo CD app-of-apps and canary rollouts"
 git branch -M main
-git push -u origin mainThen deploy the root application
+git push -u origin main
+
+# Then deploy the root application
 kubectl apply -f argocd/root-app/root-application.yaml
+```
 
 ### Phase 7 — Watch the GitOps Magic
-```bashWatch all apps sync
-argocd app listWatch the canary rollout in real time
-kubectl argo rollouts get rollout demo-app 
--n devops-demo --watch
+```bash
+# Watch all apps sync
+argocd app list
+
+# Watch the canary rollout in real time
+kubectl argo rollouts get rollout demo-app \
+  -n devops-demo --watch
+```
 
 ### Phase 8 — Access Argo Rollouts Dashboard
-```bashkubectl argo rollouts dashboard &
-Open http://localhost:3100
+```bash
+kubectl argo rollouts dashboard &
+# Open http://localhost:3100
+```
 
 ### Phase 9 — ⚠️ DESTROY EVERYTHING WHEN DONE
-```bashStep 1 — Delete all Argo CD applications
-kubectl delete application --all -n argocdStep 2 — Delete application namespaces
+```bash
+# Step 1 — Delete all Argo CD applications
+kubectl delete application --all -n argocd
+
+# Step 2 — Delete application namespaces
 kubectl delete namespace devops-demo --ignore-not-found=true
 kubectl delete namespace argo-rollouts --ignore-not-found=true
-kubectl delete namespace argocd --ignore-not-found=trueStep 3 — Destroy Terraform resources
-cd terraform && terraform destroy --auto-approveStep 4 — Delete the EKS Fargate cluster
-eksctl delete cluster 
---name emmanuel-gitops 
---region us-east-1Step 5 — Verify in AWS console that these are all gone:
-EKS cluster, Fargate profiles, VPC, NAT Gateway, IAM roles
+kubectl delete namespace argocd --ignore-not-found=true
+
+# Step 3 — Destroy Terraform resources
+cd terraform && terraform destroy --auto-approve
+
+# Step 4 — Delete the EKS Fargate cluster
+eksctl delete cluster \
+  --name emmanuel-gitops \
+  --region us-east-1
+
+# Step 5 — Verify in AWS console that these are all gone:
+# EKS cluster, Fargate profiles, VPC, NAT Gateway, IAM roles
+```
 
 ---
 
-## 🔄 GitOps FlowDeveloper pushes to GitHub
-↓
+## 🔄 GitOps Flow
+```
+Developer pushes to GitHub
+          ↓
 Argo CD detects change (every 3 minutes)
-↓
+          ↓
 Argo CD syncs desired state from Git to cluster
-↓
+          ↓
 Argo Rollouts executes canary strategy
-↓
+          ↓
 20% traffic → health check → 40% → health check
 → 60% → 80% → 100%
-↓
+          ↓
 Health check passes → promotion continues
 Health check fails → automatic rollback to stable
+```
 
 ---
 
