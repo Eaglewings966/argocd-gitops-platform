@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: gitops-platform
+    environment: production
+    managed-by: emmanuel-ubani
+    gitops: "true"

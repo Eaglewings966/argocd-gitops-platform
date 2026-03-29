@@ -7,11 +7,14 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
   labels:
     app.kubernetes.io/name: root-app
+    app.kubernetes.io/part-of: gitops-platform
     managed-by: emmanuel-ubani
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   source:
-    repoURL: https://github.com/Eaglewings966/gitops-argocd-platform
+    repoURL: https://github.com/Eaglewings966/argocd-gitops-platform
     targetRevision: HEAD
     path: argocd/apps
   destination:
@@ -23,3 +26,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

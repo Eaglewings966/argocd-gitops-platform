@@ -1,53 +1,17 @@
 variable "aws_region" {
-  description = "AWS region where all resources will be deployed"
+  description = "AWS region where the EKS cluster is deployed"
   type        = string
   default     = "us-east-1"
 }
 
-variable "project_name" {
-  description = "Prefix used for naming all resources in this project"
+variable "cluster_name" {
+  description = "Name of the EKS Fargate cluster created by eksctl"
   type        = string
   default     = "emmanuel-gitops"
 }
 
-variable "cluster_name" {
-  description = "EKS cluster name"
-  type        = string
-  default     = "emmanuel-gitops-cluster"
-}
-
-variable "cluster_version" {
-  description = "Kubernetes version for the EKS cluster"
-  type        = string
-  default     = "1.29"
-}
-
-variable "node_instance_type" {
-  description = "EC2 instance type for EKS worker nodes"
-  type        = string
-  default     = "t3.medium"
-}
-
-variable "desired_nodes" {
-  description = "Desired number of worker nodes"
-  type        = number
-  default     = 2
-}
-
-variable "min_nodes" {
-  description = "Minimum number of worker nodes"
-  type        = number
-  default     = 1
-}
-
-variable "max_nodes" {
-  description = "Maximum number of worker nodes"
-  type        = number
-  default     = 3
-}
-
 variable "argocd_namespace" {
-  description = "Kubernetes namespace where Argo CD will be installed"
+  description = "Kubernetes namespace where Argo CD is installed"
   type        = string
   default     = "argocd"
 }
@@ -58,8 +22,20 @@ variable "argocd_chart_version" {
   default     = "5.53.14"
 }
 
+variable "argo_rollouts_namespace" {
+  description = "Kubernetes namespace where Argo Rollouts is installed"
+  type        = string
+  default     = "argo-rollouts"
+}
+
 variable "argo_rollouts_chart_version" {
   description = "Helm chart version for Argo Rollouts"
   type        = string
   default     = "2.34.3"
+}
+
+variable "app_namespace" {
+  description = "Kubernetes namespace for the demo application"
+  type        = string
+  default     = "devops-demo"
 }

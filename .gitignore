@@ -1,14 +1,33 @@
-code C:\Projects\argocd-gitops-platform\.gitignore
-```
-
-Paste this content and save:
-```
+# Terraform
 .terraform/
 *.tfstate
-*.tfstate.*
-*.tfvars
-*.tfvars.json
+*.tfstate.backup
+terraform.tfvars
 .terraform.lock.hcl
+*.tfplan
+crash.log
+
+# Secrets and keys
 *.pem
 *.key
+*.p12
 .env
+.env.local
+
+# kubeconfig
+kubeconfig
+kubeconfig.yaml
+*.kubeconfig
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

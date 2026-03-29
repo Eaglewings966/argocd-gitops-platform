@@ -1,0 +1,77 @@
+name: GitOps Sync — Trigger Argo CD on Push
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+
+env:
+  ARGOCD_APP: root-app
+  ARGOCD_OPTS: "--insecure"
+
+jobs:
+  sync:
+    name: Sync Argo CD Applications
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Argo CD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 \
+            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd-linux-amd64
+          sudo mv argocd-linux-amd64 /usr/local/bin/argocd
+          argocd version --client
+
+      - name: Login to Argo CD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --auth-token ${{ secrets.ARGOCD_AUTH_TOKEN }} \
+            --insecure \
+            --grpc-web
+
+      - name: Trigger hard refresh on root app
+        run: |
+          argocd app get ${{ env.ARGOCD_APP }} \
+            --hard-refresh \
+            --insecure \
+            --grpc-web
+
+      - name: Sync root app and all child apps
+        run: |
+          argocd app sync ${{ env.ARGOCD_APP }} \
+            --insecure \
+            --grpc-web \
+            --prune \
+            --timeout 300
+
+      - name: Wait for root app to be healthy
+        run: |
+          argocd app wait ${{ env.ARGOCD_APP }} \
+            --health \
+            --timeout 300 \
+            --insecure \
+            --grpc-web
+
+      - name: Sync devops-demo-app
+        run: |
+          argocd app sync devops-demo-app \
+            --insecure \
+            --grpc-web \
+            --prune \
+            --timeout 300
+
+      - name: Show final sync status
+        run: |
+          echo "=========================================="
+          echo "Final sync status for all applications:"
+          echo "=========================================="
+          argocd app list \
+            --insecure \
+            --grpc-web

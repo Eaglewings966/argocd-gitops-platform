@@ -1,0 +1,74 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: devops-demo-rollout
+  namespace: devops-demo
+  labels:
+    app: devops-demo
+    app.kubernetes.io/part-of: gitops-platform
+    managed-by: emmanuel-ubani
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: devops-demo
+  template:
+    metadata:
+      labels:
+        app: devops-demo
+        version: stable
+    spec:
+      containers:
+        - name: devops-demo
+          image: eaglewings6/devops-demo-app:latest
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          # Fargate minimum resource requests — non-negotiable
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          env:
+            - name: PORT
+              value: "3000"
+            - name: APP_ENV
+              value: "production"
+  strategy:
+    canary:
+      # Stable service receives production traffic
+      stableService: devops-demo-stable
+      # Canary service receives test traffic during rollout
+      canaryService: devops-demo-canary
+      steps:
+        # Step 1 — Send 20% to canary
+        - setWeight: 20
+        - pause:
+            duration: 60s
+        # Step 2 — Send 50% to canary
+        - setWeight: 50
+        - pause:
+            duration: 60s
+        # Step 3 — Full rollout
+        - setWeight: 100
+      maxSurge: 1
+      maxUnavailable: 0

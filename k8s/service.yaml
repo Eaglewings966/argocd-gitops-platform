@@ -1,0 +1,39 @@
+# Stable service — receives all production traffic
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-demo-stable
+  namespace: devops-demo
+  labels:
+    app: devops-demo
+    role: stable
+    managed-by: emmanuel-ubani
+spec:
+  selector:
+    app: devops-demo
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+# Canary service — receives canary traffic during rollout
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-demo-canary
+  namespace: devops-demo
+  labels:
+    app: devops-demo
+    role: canary
+    managed-by: emmanuel-ubani
+spec:
+  selector:
+    app: devops-demo
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP

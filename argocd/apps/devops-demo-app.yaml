@@ -1,28 +1,32 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: demo-app
+  name: devops-demo-app
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   labels:
-    app.kubernetes.io/name: demo-app
+    app.kubernetes.io/name: devops-demo-app
+    app.kubernetes.io/part-of: gitops-platform
     managed-by: emmanuel-ubani
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:
-    repoURL: https://github.com/Eaglewings966/gitops-argocd-platform
+    repoURL: https://github.com/Eaglewings966/argocd-gitops-platform
     targetRevision: HEAD
-    path: apps/demo-app
+    path: k8s
   destination:
     server: https://kubernetes.default.svc
-    namespace: demo-app
+    namespace: devops-demo
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
     retry:
       limit: 5
       backoff:
