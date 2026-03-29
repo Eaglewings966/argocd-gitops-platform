@@ -11,6 +11,7 @@ on:
 env:
   ARGOCD_APP: root-app
   ARGOCD_OPTS: "--insecure"
+  ARGOCD_VERSION: "v2.9.6"
 
 jobs:
   sync:
@@ -24,7 +25,7 @@ jobs:
       - name: Install Argo CD CLI
         run: |
           curl -sSL -o argocd-linux-amd64 \
-            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+            https://github.com/argoproj/argo-cd/releases/download/${{ env.ARGOCD_VERSION }}/argocd-linux-amd64
           chmod +x argocd-linux-amd64
           sudo mv argocd-linux-amd64 /usr/local/bin/argocd
           argocd version --client

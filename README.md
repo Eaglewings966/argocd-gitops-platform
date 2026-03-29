@@ -258,7 +258,7 @@ argocd-gitops-platform/
 | Terraform | v1.5+ | [terraform.io](https://developer.hashicorp.com/terraform/install) | `terraform --version` |
 | kubectl | Latest | [kubernetes.io](https://kubernetes.io/docs/tasks/tools/) | `kubectl version --client` |
 | Helm | v3.x | [helm.sh](https://helm.sh/docs/intro/install/) | `helm version` |
-| Argo CD CLI | Latest | [argo-cd releases](https://github.com/argoproj/argo-cd/releases) | `argocd version --client` |
+| Argo CD CLI | 2.9.6 | [argo-cd releases](https://github.com/argoproj/argo-cd/releases) | `argocd version --client` |
 | AWS Account | Any | [aws.amazon.com](https://aws.amazon.com) | `aws sts get-caller-identity` |
 
 > ⚠️ **This project uses AWS Fargate exclusively.**
@@ -361,10 +361,10 @@ kubectl get pods -n argo-rollouts
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath='{.data.password}' | base64 -d && echo
 
-# Port-forward to access the UI
-kubectl port-forward svc/argocd-server -n argocd 8080:80
+# Start a resilient local tunnel to Argo CD
+powershell -ExecutionPolicy Bypass -File scripts/Start-ArgoCdPortForward.ps1
 
-# Open in browser: http://localhost:8080
+# Open in browser: http://127.0.0.1:8080
 # Username: admin
 # Password: from the command above
 ```
@@ -379,7 +379,7 @@ git push -u origin main
 kubectl apply -f argocd/apps/root-app.yaml
 
 # Watch all child apps appear and sync
-argocd login localhost:8080 \
+argocd login 127.0.0.1:8080 \
   --username admin \
   --password YOUR_PASSWORD \
   --insecure
@@ -464,8 +464,11 @@ On every push to `main`:
 
 | Secret | Description |
 |--------|-------------|
-| `ARGOCD_SERVER` | Your Argo CD server address from port-forward or ingress |
-| `ARGOCD_AUTH_TOKEN` | Argo CD API token — generate with `argocd account generate-token` |
+| `ARGOCD_SERVER` | A real Argo CD hostname reachable from GitHub Actions, such as an ingress or load balancer DNS name |
+| `ARGOCD_AUTH_TOKEN` | An API token generated for a dedicated Argo CD automation account such as `github-actions` |
+
+> `127.0.0.1:8080` or `localhost:8080` only works on your own machine during port-forwarding.
+> GitHub-hosted runners cannot reach your local tunnel, so do not use a port-forward address as the `ARGOCD_SERVER` secret.
 
 ---
 
