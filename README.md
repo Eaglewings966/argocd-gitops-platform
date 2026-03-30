@@ -1,7 +1,6 @@
 <div align="center">
 
-# 🚀 Production-Grade GitOps Platform
-## AWS EKS Fargate · Argo CD · Argo Rollouts · GitHub Actions · Terraform
+# Production-Grade GitOps Platform on AWS EKS Fargate
 
 [![Terraform](https://img.shields.io/badge/Terraform-1.5+-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![AWS EKS](https://img.shields.io/badge/AWS-EKS_Fargate-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com/fargate/)
@@ -15,322 +14,318 @@
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/Eaglewings966/argocd-gitops-platform?style=for-the-badge&color=3b82f6)](https://github.com/Eaglewings966/argocd-gitops-platform)
 
-<br/>
+**A production-grade GitOps platform that eliminates configuration drift,
+enforces Git as the single source of truth, and makes bad deployments
+architecturally impossible through progressive canary delivery.**
 
-**A production-grade GitOps platform that makes bad deployments architecturally impossible.**
-**Zero EC2 instances. Zero node management. Zero 2am incident calls.**
-
-<br/>
-
-[📖 Full Article](https://emmanuelubani.hashnode.dev) •
+[📖 Full Technical Article](https://emmanuelubani.hashnode.dev) •
 [💼 LinkedIn](https://linkedin.com/in/ubaniemmanuel) •
 [🐙 GitHub](https://github.com/Eaglewings966) •
-[🐳 Docker Hub](https://hub.docker.com/u/eaglewings6) •
 [🌐 Portfolio](https://ops-run.lovable.app)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [The Problem — A Real $140,000 Friday Night](#the-problem)
-- [Why This Architecture](#why-this-architecture)
-- [Architecture Diagram](#architecture-diagram)
-- [Tech Stack](#tech-stack)
+- [Problem Statement](#problem-statement)
+- [Business Impact](#business-impact)
+- [Architecture Overview](#architecture-overview)
+- [Architecture Decisions](#architecture-decisions)
+- [DevOps Toolchain](#devops-toolchain)
 - [Project Structure](#project-structure)
+- [Security Implementation](#security-implementation)
 - [Prerequisites](#prerequisites)
-- [Deployment — Phase by Phase](#deployment)
+- [Deployment](#deployment)
 - [GitOps Flow](#gitops-flow)
-- [GitHub Actions CI/CD](#github-actions)
-- [Canary Rollout Demo](#canary-rollout-demo)
+- [Production Considerations](#production-considerations)
 - [Key Lessons Learned](#key-lessons-learned)
 - [Destroy Everything](#destroy-everything)
 - [Author](#author)
 
 ---
 
-## 🔥 The Problem — A Real $140,000 Friday Night <a name="the-problem"></a>
+## Problem Statement
 
-11:47pm. Friday night.
+Engineering teams operating Kubernetes at scale without a
+structured GitOps delivery model accumulate four compounding
+failure patterns. Configuration drift accumulates silently
+between Git and the running cluster state until an incident
+reveals the divergence. Deployments are manual kubectl apply
+operations with no audit trail, no rollback path, and no
+traffic control during transitions. When a bad release ships,
+it hits 100% of users simultaneously before any health signal
+exists. And when incidents happen, recovery is manual,
+undocumented, and frequently amplifies the damage before
+it reduces it.
 
-A startup's lead engineer merges a new feature to main.
-The CI pipeline passes. All 847 automated tests go green.
-He closes his laptop and goes to bed feeling good.
-
-At 11:53pm the deployment hits production.
-
-The new version has a memory leak.
-Not a dramatic one. A slow one.
-The kind that staging load tests never catch
-because staging never gets real traffic.
-
-By 12:14am, pods start breaching memory limits.
-Kubernetes kills them. Restarts them.
-They breach the limit again. Die again. Restart again.
-The entire application tier is caught in a crash loop.
-
-Response times go from 180 milliseconds to 44 seconds.
-Payment transactions start timing out.
-Users take to Twitter.
-
-The on-call engineer — six weeks into the job —
-wakes up to 47 unread Slack messages.
-
-He panics.
-He starts deleting pods manually trying to force a rollback.
-In the chaos he deletes a ConfigMap
-that three separate services use for database connection strings.
-
-Now three services are completely down instead of one slow one.
-
-The incident lasts four hours and twenty-two minutes.
-Post-mortem revenue loss estimate: **$140,000.**
-The junior engineer is not fired.
-But he carries that night with him for a very long time.
+This platform addresses all four failure patterns in a single
+coherent architecture. It enforces Git as the authoritative
+source of cluster truth, gates every release behind progressive
+canary traffic steps with automated rollback, and closes the
+delivery loop through GitHub Actions on every push to main.
+The entire platform runs on AWS Fargate, eliminating EC2 node
+lifecycle management from the operational burden entirely.
 
 ---
 
-**Every part of that disaster was architecturally preventable.**
+## Business Impact
 
-With this GitOps platform:
-
-The new version would have received **20% of traffic first.**
-The memory leak would have triggered health check failures within 60 seconds.
-Argo Rollouts would have **automatically rolled back** to the stable version.
-**Zero manual intervention. Zero deleted ConfigMaps. Zero $140,000.**
-
-This is what this repository builds.
-
----
-
-## 🧠 Why This Architecture <a name="why-this-architecture"></a>
-
-Every tool in this stack was chosen to solve a specific production problem:
-
-| Tool | Problem It Solves |
-|------|------------------|
-| **AWS Fargate** | Eliminates EC2 node management, patching, and scaling overhead entirely |
-| **eksctl** | Creates a production-ready EKS cluster with correct networking in one command |
-| **Argo CD** | Makes Git the single source of truth — manual cluster changes are automatically reverted |
-| **App of Apps** | Scales application management from 3 apps to 300 apps without workflow changes |
-| **Argo Rollouts** | Prevents bad deployments from reaching all users simultaneously |
-| **Canary Strategy** | Tests new versions on real production traffic before full rollout |
-| **GitHub Actions** | Closes the GitOps loop — every push to main automatically triggers a sync |
-| **Terraform + Helm** | Makes Argo CD installation itself version-controlled and reproducible |
-| **Self-healing** | Any manual cluster change is automatically reverted to match Git within 3 minutes |
+| Metric | Before GitOps | After GitOps |
+|--------|--------------|--------------|
+| Configuration drift incidents | Frequent, undetected | Automatically corrected within 3 minutes |
+| Deployment audit trail | None | Full Git history with author, timestamp, diff |
+| Bad release blast radius | 100% of users immediately | Maximum 20% during canary step 1 |
+| Manual rollback time | 15 to 45 minutes | Automatic, under 60 seconds |
+| Deployment frequency risk | High — manual ops error-prone | Low — Git push triggers automated pipeline |
+| On-call incidents from bad deploys | Reactive, no prevention | Prevented at canary stage before full rollout |
 
 ---
 
-## 🏗️ Architecture Diagram <a name="architecture-diagram"></a>
+## Architecture Overview
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                        DEVELOPER WORKFLOW                            │
+│                        DELIVERY PIPELINE                             │
 │                                                                      │
-│   git push to main                                                   │
-│         │                                                            │
-│         ▼                                                            │
-│   GitHub Actions runs gitops-sync.yml                               │
-│         │                                                            │
-│         ▼                                                            │
-│   argocd app sync root-app ──► triggers all child apps              │
-└──────────────────────────────┬───────────────────────────────────────┘
-                               │
-                               │ Argo CD polls every 3 min
-                               │ GitHub Actions triggers on push
-                               ▼
+│  Engineer pushes to main branch                                      │
+│          │                                                           │
+│          ▼                                                           │
+│  GitHub Actions — gitops-sync.yml                                   │
+│  Triggers argocd app sync immediately on push                       │
+│          │                                                           │
+│          ▼                                                           │
+│  Argo CD reconciliation engine                                      │
+│  Compares Git state to cluster state                                │
+│  Detects diff, syncs child applications                             │
+└─────────────────────────────┬────────────────────────────────────────┘
+                              │
+                              ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                      AWS us-east-1                                   │
+│                        AWS us-east-1                                 │
+│                                                                      │
+│  VPC — eksctl managed                                               │
+│  ├── Public Subnets  — NAT Gateway outbound egress                  │
+│  └── Private Subnets — all Fargate pod compute                      │
+│                                                                      │
+│  EKS Cluster: emmanuel-gitops — Kubernetes 1.29                     │
+│  Compute model: 100% AWS Fargate — zero EC2 nodes                   │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │              VPC (created by eksctl)                           │  │
+│  │  argocd namespace — Fargate profile: fp-argocd                │  │
 │  │                                                                │  │
-│  │  ┌─────────────────────┐    ┌─────────────────────────────┐   │  │
-│  │  │   Public Subnets    │    │   Private Subnets           │   │  │
-│  │  │   NAT Gateway       │    │   Fargate pods run here     │   │  │
-│  │  └─────────────────────┘    └──────────────┬──────────────┘   │  │
-│  │                                             │                  │  │
-│  │         ┌───────────────────────────────────▼───────────────┐  │  │
-│  │         │       EKS Cluster: emmanuel-gitops                │  │  │
-│  │         │       Kubernetes v1.29 — 100% Fargate             │  │  │
-│  │         │       Zero EC2 instances                          │  │  │
-│  │         │                                                   │  │  │
-│  │         │  ┌─────────────────────────────────────────────┐  │  │  │
-│  │         │  │  namespace: argocd                          │  │  │  │
-│  │         │  │  Fargate profile: fp-argocd                 │  │  │  │
-│  │         │  │                                             │  │  │  │
-│  │         │  │  ┌──────────────────────────────────────┐   │  │  │  │
-│  │         │  │  │  Argo CD Server                      │   │  │  │  │
-│  │         │  │  │                                      │   │  │  │  │
-│  │         │  │  │  root-app ──watches──► argocd/apps/  │   │  │  │  │
-│  │         │  │  │     │                                │   │  │  │  │
-│  │         │  │  │     ├──► devops-demo-app             │   │  │  │  │
-│  │         │  │  │     └──► argo-rollouts-config        │   │  │  │  │
-│  │         │  │  └──────────────────────────────────────┘   │  │  │  │
-│  │         │  └─────────────────────────────────────────────┘  │  │  │
-│  │         │                                                   │  │  │
-│  │         │  ┌─────────────────────────────────────────────┐  │  │  │
-│  │         │  │  namespace: argo-rollouts                   │  │  │  │
-│  │         │  │  Fargate profile: fp-argo-rollouts          │  │  │  │
-│  │         │  │                                             │  │  │  │
-│  │         │  │  ┌──────────────────────────────────────┐   │  │  │  │
-│  │         │  │  │  Argo Rollouts Controller            │   │  │  │  │
-│  │         │  │  │  Canary: 20% → 50% → 100%            │   │  │  │  │
-│  │         │  │  │  Automatic rollback on failure        │   │  │  │  │
-│  │         │  │  └──────────────────────────────────────┘   │  │  │  │
-│  │         │  └─────────────────────────────────────────────┘  │  │  │
-│  │         │                                                   │  │  │
-│  │         │  ┌─────────────────────────────────────────────┐  │  │  │
-│  │         │  │  namespace: devops-demo                     │  │  │  │
-│  │         │  │  Fargate profile: fp-devops-demo            │  │  │  │
-│  │         │  │                                             │  │  │  │
-│  │         │  │  ┌──────────────┐  ┌────────────────────┐   │  │  │  │
-│  │         │  │  │ Stable Pods  │  │   Canary Pod       │   │  │  │  │
-│  │         │  │  │ 80% traffic  │  │   20% traffic      │   │  │  │  │
-│  │         │  │  │ svc: stable  │  │   svc: canary      │   │  │  │  │
-│  │         │  │  └──────────────┘  └────────────────────┘   │  │  │  │
-│  │         │  │  image: eaglewings6/devops-demo-app:latest   │  │  │  │
-│  │         │  │  port: 3000                                  │  │  │  │
-│  │         │  └─────────────────────────────────────────────┘  │  │  │
-│  │         │                                                   │  │  │
-│  │         │  kubectl port-forward → localhost:8080            │  │  │
-│  │         └───────────────────────────────────────────────────┘  │  │
+│  │  Argo CD Server                                               │  │
+│  │  root-app ──watches──► argocd/apps/ in GitHub repo           │  │
+│  │      ├──► devops-demo-app     (owns k8s/ manifests)          │  │
+│  │      └──► argo-rollouts-config (owns rollout config)         │  │
 │  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  argo-rollouts namespace — Fargate profile: fp-argo-rollouts  │  │
+│  │                                                                │  │
+│  │  Argo Rollouts Controller                                     │  │
+│  │  Manages canary traffic: 20% → 50% → 100%                    │  │
+│  │  Automatic rollback on health check failure                   │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  devops-demo namespace — Fargate profile: fp-devops-demo      │  │
+│  │                                                                │  │
+│  │  Rollout: devops-demo-rollout                                 │  │
+│  │  Image: eaglewings6/devops-demo-app:latest                    │  │
+│  │  Replicas: 2 desired / 2 current / 2 available               │  │
+│  │                                                                │  │
+│  │  devops-demo-stable (ClusterIP) ── stable pod traffic        │  │
+│  │  devops-demo-canary (ClusterIP) ── canary pod traffic        │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  Local access: kubectl port-forward svc/argocd-server               │
+│                -n argocd 8080:80                                     │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🛠️ Tech Stack <a name="tech-stack"></a>
+## Architecture Decisions
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| eksctl | 0.220.0 | EKS Fargate cluster and Fargate profile provisioning |
-| AWS EKS | 1.29 | Managed Kubernetes control plane |
-| AWS Fargate | Latest | Serverless container compute — zero EC2 nodes |
-| Terraform | 1.5+ | Namespace and Helm release management |
-| Helm | 3.x | Package management for Argo CD and Argo Rollouts |
-| Argo CD | 2.9 | GitOps continuous delivery engine |
-| Argo Rollouts | 1.6 | Progressive canary delivery with automated rollback |
-| GitHub Actions | Latest | CI/CD pipeline triggering Argo CD sync on every push |
-| kubectl | Latest | Cluster verification and port-forwarding |
-| Docker Hub | Latest | Container registry — eaglewings6/devops-demo-app:latest |
+**Why App of Apps over individual application registration**
+Registering applications individually in Argo CD creates a direct
+dependency on the Argo CD server for every new service onboarding.
+App of Apps delegates application lifecycle entirely to Git.
+A new service enters the platform by adding one YAML file and pushing.
+No one touches the Argo CD server.
+
+**Why Fargate over EC2 node groups**
+Fargate eliminates AMI versioning, cluster autoscaler configuration,
+node drain sequences, and capacity planning for worker node pools.
+The trade-offs are higher per-pod cost, slower cold start, and
+private-subnet-only networking. For a GitOps control plane, those
+trade-offs are acceptable. Fargate also bypasses EC2 Fleet Request
+quotas entirely, which blocks provisioning on new AWS accounts.
+
+**Why Argo Rollouts over Kubernetes rolling updates**
+A standard Deployment rolling update provides zero traffic control
+during the transition. Argo Rollouts introduces weighted traffic steps
+backed by separate stable and canary ClusterIP services. The rollout
+controller owns the traffic distribution. Any step can trigger
+automatic rollback based on health check failure, removing the
+need for manual intervention during a bad release.
+
+**Why Terraform Helm provider over manual helm install**
+A manual helm install is not reproducible, not version-controlled,
+and produces no infrastructure state. The Terraform Helm provider
+makes Argo CD a first-class infrastructure resource that appears
+in terraform plan, can be updated via apply, and is destroyed
+cleanly via destroy. It also enables declarative resource request
+configuration on every Argo CD subchart component, which is
+mandatory for Fargate scheduling.
 
 ---
 
-## 📁 Project Structure <a name="project-structure"></a>
+## DevOps Toolchain
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| eksctl | 0.220.0 | EKS Fargate cluster and profile provisioning |
+| AWS EKS | 1.29 | Managed Kubernetes control plane |
+| AWS Fargate | Latest | Serverless pod compute — zero EC2 nodes |
+| Terraform | 1.5+ | Namespace and Helm release lifecycle |
+| Helm | 3.x | Argo CD and Argo Rollouts installation |
+| Argo CD | 2.9 | GitOps reconciliation and self-healing |
+| Argo Rollouts | 1.6 | Progressive canary delivery with auto-rollback |
+| GitHub Actions | Latest | GitOps sync trigger on push to main |
+| kubectl | Latest | Cluster interaction and port-forwarding |
+| Docker Hub | Latest | eaglewings6/devops-demo-app:latest |
+
+---
+
+## Project Structure
 ```
 argocd-gitops-platform/
 │
 ├── .github/
 │   └── workflows/
-│       └── gitops-sync.yml        # GitHub Actions — triggers Argo CD sync on push
+│       └── gitops-sync.yml        # Triggers Argo CD sync on push to main
 │
 ├── terraform/
-│   ├── main.tf                    # Namespaces + Argo CD + Argo Rollouts via Helm
-│   ├── variables.tf               # All configurable input variables
-│   ├── outputs.tf                 # Useful commands output after apply
+│   ├── main.tf                    # Argo CD + Argo Rollouts Helm releases
+│   ├── variables.tf               # Cluster name, namespaces, chart versions
+│   ├── outputs.tf                 # Access commands and destroy instructions
 │   └── versions.tf                # Provider version constraints
 │
 ├── argocd/
 │   └── apps/
-│       ├── root-app.yaml          # Parent app — watches argocd/apps/ folder in Git
+│       ├── root-app.yaml          # Parent app — watches argocd/apps/ in Git
 │       ├── devops-demo-app.yaml   # Child app — deploys k8s/ manifests
-│       └── argo-rollouts-app.yaml # Child app — manages Argo Rollouts config
+│       └── argo-rollouts-app.yaml # Child app — manages rollout configuration
 │
 ├── k8s/
 │   ├── namespace.yaml             # devops-demo namespace with GitOps labels
-│   ├── rollout.yaml               # Argo Rollout with 20/50/100 canary strategy
+│   ├── rollout.yaml               # Argo Rollout — 20/50/100 canary strategy
 │   └── service.yaml               # Stable and canary ClusterIP services
 │
-├── .gitignore                     # Excludes tfstate, tfvars, .terraform/, secrets
-└── README.md                      # This file
+├── .gitignore                     # Excludes tfstate, tfvars, .terraform/
+└── README.md
 ```
 
 ---
 
-## ✅ Prerequisites <a name="prerequisites"></a>
+## Security Implementation
 
-| Tool | Version | Install | Verify |
-|------|---------|---------|--------|
-| AWS CLI | v2.x | [docs.aws.amazon.com](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) | `aws --version` |
-| eksctl | v0.220.0 | [eksctl.io](https://eksctl.io/installation/) | `eksctl version` |
-| Terraform | v1.5+ | [terraform.io](https://developer.hashicorp.com/terraform/install) | `terraform --version` |
-| kubectl | Latest | [kubernetes.io](https://kubernetes.io/docs/tasks/tools/) | `kubectl version --client` |
-| Helm | v3.x | [helm.sh](https://helm.sh/docs/intro/install/) | `helm version` |
-| Argo CD CLI | 2.9.6 | [argo-cd releases](https://github.com/argoproj/argo-cd/releases) | `argocd version --client` |
-| AWS Account | Any | [aws.amazon.com](https://aws.amazon.com) | `aws sts get-caller-identity` |
+**Least privilege IAM roles**
+eksctl creates dedicated IAM roles for the EKS control plane and
+Fargate execution. No wildcard permissions. No shared roles between
+the cluster and application workloads. Each role carries only the
+policies required for its specific function.
 
-> ⚠️ **This project uses AWS Fargate exclusively.**
-> No EC2 instances are required. No vCPU quota increases needed.
-> Fargate bypasses all EC2 Fleet Request quotas completely.
+**No secrets in Git**
+The .gitignore excludes terraform.tfvars, all .tfstate files, .env
+files, and kubeconfig files. GitHub Actions secrets store the Argo CD
+server address and authentication token. No credentials appear in
+any committed file.
+
+**Self-healing as a security control**
+Argo CD selfHeal: true automatically reverts any manual cluster
+modification that diverges from Git state. This prevents
+configuration tampering from persisting in the cluster, whether
+accidental or intentional, beyond a three-minute reconciliation window.
+
+**Fargate isolation**
+Each pod runs in an isolated microVM with its own network namespace.
+There is no shared node filesystem or shared node network stack.
+A compromised pod cannot read the filesystem or network traffic
+of another pod on the same underlying hardware through a shared
+node path.
+
+**Production security additions required**
+For a production deployment, this platform would additionally require
+IRSA for pod-level AWS identity, External Secrets Operator with
+AWS Secrets Manager for secret rotation, Argo CD SSO via Dex for
+user-level audit trails, and container image scanning integrated
+into the GitHub Actions pipeline before the sync step.
 
 ---
 
-## 🚀 Deployment — Phase by Phase <a name="deployment"></a>
+## Prerequisites
 
-### Phase 1 — Create the EKS Fargate Cluster
+| Tool | Version | Verify |
+|------|---------|--------|
+| AWS CLI | v2.x | `aws --version` |
+| eksctl | v0.220.0 | `eksctl version` |
+| Terraform | v1.5+ | `terraform --version` |
+| kubectl | Latest | `kubectl version --client` |
+| Helm | v3.x | `helm version` |
+| Argo CD CLI | Latest | `argocd version --client` |
+
+> This project uses Fargate exclusively.
+> No EC2 quota increases required.
+> External Argo CD access uses kubectl port-forward.
+> Full GitHub Actions automation requires a network-reachable
+> Argo CD endpoint via ALB Controller.
+
+---
+
+## Deployment
+
+### Phase 1 — EKS Fargate Cluster
 ```bash
-# This single command creates the entire cluster
-# VPC, public and private subnets, NAT Gateway,
-# EKS control plane, and default Fargate profile
 eksctl create cluster \
   --name emmanuel-gitops \
   --region us-east-1 \
   --fargate
 
-# Verify cluster is active
-aws eks describe-cluster \
-  --name emmanuel-gitops \
-  --region us-east-1 \
-  --query cluster.status
-
-# Configure kubectl
 aws eks update-kubeconfig \
   --region us-east-1 \
   --name emmanuel-gitops
 ```
 
-> ⚠️ This takes 15 to 20 minutes. Do not cancel it.
-> Running `kubectl get nodes` will show zero nodes. This is correct on Fargate.
+> kubectl get nodes returns nothing on Fargate. This is correct.
+> Fargate provisions compute invisibly per pod.
 
 ---
 
-### Phase 2 — Create Fargate Profiles
-
-> ⚠️ Every namespace that runs pods needs its own Fargate profile.
-> Without this, pods stay in Pending state forever with no error message.
+### Phase 2 — Fargate Profiles
 ```bash
-# Profile for Argo CD
-eksctl create fargateprofile \
-  --cluster emmanuel-gitops \
-  --region us-east-1 \
-  --name fp-argocd \
-  --namespace argocd
+for ns in argocd argo-rollouts devops-demo; do
+  eksctl create fargateprofile \
+    --cluster emmanuel-gitops \
+    --region us-east-1 \
+    --name fp-${ns} \
+    --namespace ${ns}
+done
 
-# Profile for Argo Rollouts
-eksctl create fargateprofile \
-  --cluster emmanuel-gitops \
-  --region us-east-1 \
-  --name fp-argo-rollouts \
-  --namespace argo-rollouts
-
-# Profile for the demo application
-eksctl create fargateprofile \
-  --cluster emmanuel-gitops \
-  --region us-east-1 \
-  --name fp-devops-demo \
-  --namespace devops-demo
-
-# Verify all profiles are Active
 eksctl get fargateprofile \
   --cluster emmanuel-gitops \
   --region us-east-1
 ```
 
+> Every namespace running pods requires a matching Fargate profile.
+> Pods in a namespace without a profile stay in Pending state
+> indefinitely with no error output.
+
 ---
 
-### Phase 3 — Deploy Argo CD and Argo Rollouts With Terraform
+### Phase 3 — Argo CD and Argo Rollouts via Terraform
 ```bash
 cd terraform
 terraform init
@@ -338,235 +333,178 @@ terraform fmt
 terraform validate
 terraform plan
 terraform apply --auto-approve
-```
 
-> Terraform creates the namespaces and installs Argo CD and Argo Rollouts
-> via Helm with Fargate-compatible resource requests on every component.
-```bash
-# Verify all Argo CD pods are Running
 kubectl get pods -n argocd
-
-# Verify Argo Rollouts pods are Running
 kubectl get pods -n argo-rollouts
 ```
 
-> ⚠️ On Fargate, pods take 3 to 5 minutes longer to start than on EC2.
-> AWS provisions compute per pod. Give it time before troubleshooting.
+> Fargate pod startup is 3 to 5 minutes slower than EC2.
+> AWS provisions compute per pod. Allow time before troubleshooting.
 
 ---
 
-### Phase 4 — Access Argo CD and Deploy the Root App
+### Phase 4 — Root App Deployment
 ```bash
-# Get the admin password
+# Get Argo CD admin password
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath='{.data.password}' | base64 -d && echo
 
-# Start a resilient local tunnel to Argo CD
-powershell -ExecutionPolicy Bypass -File scripts/Start-ArgoCdPortForward.ps1
+# Port-forward for UI access
+kubectl port-forward svc/argocd-server -n argocd 8080:80
+# Open http://localhost:8080
 
-# Open in browser: http://127.0.0.1:8080
-# Username: admin
-# Password: from the command above
-```
-```bash
-# Push your code to GitHub first
+# Push to GitHub first — Argo CD reads from the remote repo
 git add .
-git commit -m "feat: production GitOps platform with Argo CD and canary rollouts"
-git branch -M main
-git push -u origin main
+git commit -m "feat: production GitOps platform with canary delivery"
+git push origin main
 
-# Then deploy the root application
+# Deploy root application
 kubectl apply -f argocd/apps/root-app.yaml
 
-# Watch all child apps appear and sync
-argocd login 127.0.0.1:8080 \
-  --username admin \
-  --password YOUR_PASSWORD \
-  --insecure
-
-argocd app list
+# Verify child apps registered
+argocd app list --insecure --server localhost:8080
 ```
+
+> Port-forward on Fargate drops intermittently due to network
+> namespace isolation per pod. Restart port-forward when it drops.
+> This is a known Fargate limitation — see Production Considerations.
 
 ---
 
-### Phase 5 — Watch the Canary Rollout
+### Phase 5 — Canary Rollout Verification
 ```bash
-# Install the Argo Rollouts kubectl plugin
+# Install Argo Rollouts plugin
 curl -LO \
   https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
 chmod +x kubectl-argo-rollouts-linux-amd64
 sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
 
-# Watch the rollout in real time
+# Watch live rollout
 kubectl argo rollouts get rollout devops-demo-rollout \
   -n devops-demo --watch
 
-# Open the Argo Rollouts dashboard
+# Open Argo Rollouts dashboard
 kubectl argo rollouts dashboard &
 # Open http://localhost:3100
 ```
 
 ---
 
-## 🔄 GitOps Flow <a name="gitops-flow"></a>
+## GitOps Flow
 ```
 Developer pushes to main
-          │
-          ▼
-GitHub Actions triggers (gitops-sync.yml)
-          │
-          ▼
-argocd app sync root-app
-          │
-          ▼
-Argo CD detects changes in argocd/apps/ and k8s/
-          │
-          ▼
-Argo CD syncs all child applications
-          │
-          ▼
-Argo Rollouts executes canary strategy
-          │
-     ┌────┴────┐
-     │         │
-  20% → wait  80% stable traffic
-     │
-     ▼
-  Health check passes → promote to 50%
-     │
-     ▼
-  Health check passes → promote to 100%
-     │
-     ▼
-  Health check fails at any step
-     │
-     ▼
-  Automatic rollback → 100% stable
-  Zero manual intervention
+        │
+        ▼
+GitHub Actions fires — gitops-sync.yml
+        │
+        ▼
+argocd app sync root-app (hard refresh)
+        │
+        ▼
+Argo CD reconciles argocd/apps/ against cluster
+        │
+        ▼
+devops-demo-app sync triggers Argo Rollouts
+        │
+        ▼
+Step 1 — 20% canary traffic, 60s pause
+        │
+Health check pass ──► Step 2 — 50%, 60s pause
+        │
+Health check pass ──► Step 3 — 100% promotion
+        │
+Health check FAIL at any step
+        │
+        ▼
+Automatic rollback — 100% stable
+Zero manual intervention required
 ```
 
 ---
 
-## ⚙️ GitHub Actions CI/CD <a name="github-actions"></a>
+## Production Considerations
 
-The `.github/workflows/gitops-sync.yml` workflow closes the GitOps loop.
-
-On every push to `main`:
-
-1. GitHub Actions installs the Argo CD CLI
-2. Logs into Argo CD using `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` secrets
-3. Triggers a hard refresh on `root-app` to force Git re-evaluation
-4. Syncs all child applications
-5. Waits for health confirmation
-6. Prints final sync status of all applications
-
-**Required GitHub Secrets:**
-
-| Secret | Description |
-|--------|-------------|
-| `ARGOCD_SERVER` | A real Argo CD hostname reachable from GitHub Actions, such as an ingress or load balancer DNS name |
-| `ARGOCD_AUTH_TOKEN` | An API token generated for a dedicated Argo CD automation account such as `github-actions` |
-
-> `127.0.0.1:8080` or `localhost:8080` only works on your own machine during port-forwarding.
-> GitHub-hosted runners cannot reach your local tunnel, so do not use a port-forward address as the `ARGOCD_SERVER` secret.
+| Gap | Current State | Production Solution |
+|-----|--------------|---------------------|
+| Argo CD server exposure | kubectl port-forward | AWS Load Balancer Controller with ALB and ACM |
+| GitHub Actions sync loop | Requires stable endpoint | ALB endpoint enables full CI/CD automation |
+| Pod-level AWS identity | Fargate execution role | IRSA with scoped per-workload IAM roles |
+| Secret management | Kubernetes Secrets | External Secrets Operator with AWS Secrets Manager |
+| Argo CD access control | Single admin credential | Dex SSO with GitHub or Okta OIDC |
+| Multi-cluster support | Single cluster | Hub-and-spoke Argo CD with downstream cluster registration |
+| Container image security | No scanning | Trivy scan in GitHub Actions before sync step |
 
 ---
 
-## 🚦 Canary Rollout Demo <a name="canary-rollout-demo"></a>
+## Key Lessons Learned
 
-To trigger a new canary rollout, update the image tag in `k8s/rollout.yaml`
-and push to main:
+**Fargate port-forward instability is architectural**
+Port-forward drops more frequently on Fargate than on EC2 clusters.
+This is caused by Fargate's per-pod network namespace isolation.
+There is no shared node network stack for the tunnel to anchor to.
+The production solution is ALB Controller. The development workaround
+is to restart port-forward when the session drops.
+
+**Every Fargate namespace requires an explicit profile**
+The default eksctl Fargate profile covers kube-system and default
+only. All other namespaces require a dedicated profile. A missing
+profile produces silent Pending state with zero error output.
+Create profiles before deploying workloads, not after.
+
+**Fargate resource requests are a binary scheduling requirement**
+On EC2, missing resource requests result in best-effort scheduling.
+On Fargate, missing requests at or above the minimum thresholds
+result in the pod never scheduling. This applies to every Argo CD
+subchart component. Set requests on all of them or none will run.
+
+**Push before apply is a hard sequencing rule**
+Argo CD reads from the Git remote, not the local filesystem.
+Applying the root application before pushing manifests results
+in ComparisonError. In automated pipelines this is enforced by
+the pipeline. In manual deployments it must be enforced by discipline.
+
+**Self-healing changes how you think about cluster authority**
+The first time Argo CD reverts a manual change you made to the
+cluster, it feels wrong. It is not wrong. It is working correctly.
+If a change needs to be made, it goes into Git first. That discipline
+is what makes GitOps operationally reliable at scale.
+
+**Partial automation is still documented architecture**
+The GitHub Actions GitOps loop requires a network-reachable Argo CD
+endpoint to execute. That endpoint does not exist in this environment
+without ALB Controller. The workflow is committed, correct, and
+ready the moment the endpoint exists. Documenting the gap and the
+path to close it is part of the engineering work.
+
+---
+
+## Destroy Everything
+
+Run in this exact order to prevent orphaned AWS resources:
 ```bash
-# Edit rollout.yaml — change image tag from :latest to :v2
-# Then push
-git add k8s/rollout.yaml
-git commit -m "deploy: update devops-demo to v2"
-git push
-
-# Watch the canary progress
-kubectl argo rollouts get rollout devops-demo-rollout \
-  -n devops-demo --watch
-```
-
-You will see traffic shift:
-- `0% → 20%` — canary pod receives first traffic
-- `20% → 50%` — promoted after 60 seconds of healthy checks
-- `50% → 100%` — full rollout
-- Automatic rollback to 0% if health checks fail at any step
-
----
-
-## 💡 Key Lessons Learned <a name="key-lessons-learned"></a>
-
-**1. Fargate shows zero nodes and that is completely correct**
-`kubectl get nodes` returns nothing on a Fargate cluster.
-This is expected behaviour. Fargate provisions compute
-invisibly per pod. Zero nodes does not mean something is broken.
-It means Fargate is working exactly as designed.
-
-**2. Every namespace needs its own Fargate profile before pods can schedule**
-This is the most common Fargate mistake. A pod deployed into
-a namespace with no matching Fargate profile stays in Pending
-state indefinitely. No error message. No warning. Just waiting forever.
-Create the profile before the namespace is used. Every single time.
-
-**3. Push to GitHub before applying the root app**
-Argo CD reads directly from your GitHub repository. Applying
-the root application before pushing your manifests results in
-a ComparisonError — Argo CD cannot find the path it was told
-to watch. Always push first. Apply second. Never the other way around.
-
-**4. Fargate resource requests are not optional**
-Every container on Fargate must explicitly declare CPU and memory
-requests of at least 250m CPU and 512Mi memory. Containers
-without explicit requests fail to schedule with an unhelpful
-error message. Set requests on every container including Argo CD
-internal components like redis, applicationSet, and notifications.
-
-**5. The destroy order prevents orphaned AWS resources**
-Deleting Kubernetes resources before running eksctl delete cluster
-is critical. If you destroy the cluster first, any AWS resources
-created by Kubernetes services — load balancers, security groups —
-become orphaned and continue charging your account silently.
-Always clean up Kubernetes resources first then destroy the cluster.
-
-**6. Self-healing is a feature not a bug**
-The first time Argo CD reverts a change you made manually to the
-cluster, it feels like a fight. It is not. Argo CD is doing exactly
-what it is supposed to do. If you need to make a change, make it
-in Git and push. The cluster will converge to it within 3 minutes.
-That discipline is what makes GitOps reliable at scale.
-
----
-
-## 🗑️ Destroy Everything <a name="destroy-everything"></a>
-
-Run in this exact order to avoid orphaned AWS resources:
-```bash
-# Step 1 — Delete all Argo CD applications
+# Remove Argo CD application resources first
 kubectl delete application --all -n argocd
 
-# Step 2 — Delete application namespaces
-kubectl delete namespace devops-demo --ignore-not-found=true
-kubectl delete namespace argo-rollouts --ignore-not-found=true
-kubectl delete namespace argocd --ignore-not-found=true
+# Remove workload namespaces
+kubectl delete namespace devops-demo \
+  argo-rollouts argocd --ignore-not-found=true
 
-# Step 3 — Destroy Terraform resources
+# Destroy Terraform-managed resources
 cd terraform && terraform destroy --auto-approve
 
-# Step 4 — Delete the entire EKS Fargate cluster
+# Delete the EKS Fargate cluster and all eksctl-managed resources
 eksctl delete cluster \
   --name emmanuel-gitops \
   --region us-east-1
-
-# Step 5 — Verify in AWS console
-# Confirm these are all gone:
-# EKS cluster, Fargate profiles, VPC, NAT Gateway, IAM roles
 ```
+
+Verify in AWS console that EKS cluster, Fargate profiles, VPC,
+NAT Gateway, and IAM roles are fully removed.
+Total spend for this project: approximately $5.
 
 ---
 
-## 👨‍💻 Author <a name="author"></a>
+## Author
 
 <div align="center">
 
@@ -574,8 +512,7 @@ eksctl delete cluster \
 Cloud and DevOps Engineer — Lagos, Nigeria
 
 *From zoo volunteer to Cloud and DevOps Engineer.*
-*Building enterprise infrastructure in public.*
-*One project at a time.*
+*Building production-grade infrastructure in public.*
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-ubaniemmanuel-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/ubaniemmanuel)
 [![GitHub](https://img.shields.io/badge/GitHub-Eaglewings966-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Eaglewings966)
@@ -584,14 +521,12 @@ Cloud and DevOps Engineer — Lagos, Nigeria
 [![Docker Hub](https://img.shields.io/badge/Docker_Hub-eaglewings6-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com/u/eaglewings6)
 [![Portfolio](https://img.shields.io/badge/Portfolio-ops--run.lovable.app-6366f1?style=for-the-badge)](https://ops-run.lovable.app)
 
-**Previous Projects in This Series:**
-
-| # | Project | Repo |
-|---|---------|------|
-| 1 | AWS IAM Multi-Account Setup | [github.com/Eaglewings966/aws-iam-multi-account-setup](https://github.com/Eaglewings966/aws-iam-multi-account-setup) |
-| 2 | GitHub Actions CI/CD Pipeline | [github.com/Eaglewings966/github-actions-cicd-pipeline](https://github.com/Eaglewings966/github-actions-cicd-pipeline) |
-| 3 | Kubernetes EKS Deployment | [github.com/Eaglewings966/eks-kubernetes-deployment](https://github.com/Eaglewings966/eks-kubernetes-deployment) |
-| 4 | GitOps Platform with Argo CD | **This repository** |
+| # | Project | Repository |
+|---|---------|------------|
+| 1 | AWS IAM Multi-Account Setup | [aws-iam-multi-account-setup](https://github.com/Eaglewings966/aws-iam-multi-account-setup) |
+| 2 | GitHub Actions CI/CD Pipeline | [github-actions-cicd-pipeline](https://github.com/Eaglewings966/github-actions-cicd-pipeline) |
+| 3 | Kubernetes EKS Deployment | [eks-kubernetes-deployment](https://github.com/Eaglewings966/eks-kubernetes-deployment) |
+| 4 | GitOps Platform with Argo CD | This repository |
 | 5 | AWS Cost Optimization | Coming soon |
 
 </div>
